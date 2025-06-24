@@ -1,15 +1,18 @@
 from tinydb import TinyDB, Query
+from tinydb.storages import JSONStorage
+from tinydb.middlewares import CachingMiddleware
 import os
 
 os.makedirs("data", exist_ok=True)
-db = TinyDB("data/todos.json")
+
+db = TinyDB("data/todos.json", storage=CachingMiddleware(JSONStorage), encoding="utf-8")
 User = Query()
 
 def add_todo(user_id, text):
     db.insert({"user_id": user_id, "text": text, "done": False})
 
 def list_todos(user_id):
-    return db.search((User.user_id == user_id))
+    return db.search(User.user_id == user_id)
 
 def delete_todo_multiple(user_id, indexes):
     todos = list_todos(user_id)
