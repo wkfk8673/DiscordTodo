@@ -1,4 +1,6 @@
 discord.py
 python-dotenv
-flask
 tinydb
+gspread
+oauth2client
+flask
