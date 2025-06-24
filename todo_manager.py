@@ -1,7 +1,7 @@
 from tinydb import TinyDB, Query
 import os
 
-os.makedirs("data", exist_ok=True)  # data 폴더 자동 생성
+os.makedirs("data", exist_ok=True)
 db = TinyDB("data/todos.json")
 User = Query()
 
@@ -9,10 +9,7 @@ def add_todo(user_id, text):
     db.insert({"user_id": user_id, "text": text, "done": False})
 
 def list_todos(user_id):
-    return db.search((User.user_id == user_id) & (User.done == False))
-
-def list_completed(user_id):
-    return db.search((User.user_id == user_id) & (User.done == True))
+    return db.search((User.user_id == user_id))
 
 def delete_todo_multiple(user_id, indexes):
     todos = list_todos(user_id)
@@ -24,7 +21,7 @@ def delete_todo_multiple(user_id, indexes):
     return deleted
 
 def delete_all_todos(user_id):
-    db.remove((User.user_id == user_id) & (User.done == False))
+    db.remove(User.user_id == user_id)
 
 def mark_done_multiple(user_id, indexes):
     todos = list_todos(user_id)

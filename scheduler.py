@@ -1,8 +1,9 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
-import discord
 from todo_manager import clear_completed
+from sheets_backup import backup_to_sheets
+import discord
 
 KST = timezone(timedelta(hours=9))
 
@@ -21,8 +22,10 @@ def get_seconds_until_next_monday(hour_kst=21):
     return (next_monday_utc - now_utc).total_seconds()
 
 def setup_scheduler(bot, channel_id):
-    @tasks.loop(weeks=1)
+    @tasks.loop(seconds=604800)  # 1주일 간격
     async def monday_reminder():
+        backup_to_sheets()  # 자동 백업 실행
+
         channel = bot.get_channel(channel_id)
         if channel:
             thread = await channel.create_thread(
@@ -30,6 +33,8 @@ def setup_scheduler(bot, channel_id):
                 type=discord.ChannelType.public_thread
             )
             await thread.send("@everyone 새로운 한 주입니다! 아래 스레드에 이번 주 TODO를 적어주세요. 💪")
+
+            # 모든 멤버별 완료된 항목 삭제
             for member in channel.members:
                 clear_completed(str(member.id))
 

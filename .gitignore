@@ -1,3 +1,4 @@
+credentials.json
 data/todos.json
-.env
 __pycache__/
+.env
