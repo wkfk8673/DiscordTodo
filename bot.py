@@ -1,4 +1,5 @@
 import os
+import json
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -19,6 +20,12 @@ from keep_alive import keep_alive
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+# ✅ Render 환경에서 credentials.json 파일 자동 생성
+if os.getenv("GOOGLE_CREDENTIALS"):
+    with open("credentials.json", "w") as f:
+        json.dump(json.loads(os.getenv("GOOGLE_CREDENTIALS")), f)
+
+# 🔐 Google Sheets API 인증 객체
 def get_gspread_client():
     scope = [
         "https://spreadsheets.google.com/feeds",
@@ -27,13 +34,14 @@ def get_gspread_client():
     creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     return gspread.authorize(creds)
 
+# 환경 변수 로드
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_ID = int(os.getenv("TARGET_CHANNEL_ID"))
 
+# 디스코드 봇 설정
 intents = discord.Intents.default()
 intents.message_content = True
-
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.command()
@@ -111,6 +119,7 @@ async def todo(ctx, subcommand=None, *args):
             "`!todo 완료 <번호들>` 또는 `전체`"
         )
 
+# ✅ 관리자용 명령어: 수동 백업
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def 저장(ctx):
@@ -122,6 +131,7 @@ async def 저장(ctx):
     except Exception as e:
         await ctx.send(f"❌ 백업 중 오류 발생:\n```{e}```")
 
+# ✅ 관리자용 명령어: 수동 복원
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def 복원(ctx):
@@ -133,6 +143,7 @@ async def 복원(ctx):
     except Exception as e:
         await ctx.send(f"❌ 복원 중 오류 발생:\n```{e}```")
 
+# 서버 keep-alive 및 스케줄러 실행
 keep_alive()
 setup_scheduler(bot, CHANNEL_ID)
 bot.run(TOKEN)
