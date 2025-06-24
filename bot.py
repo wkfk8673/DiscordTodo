@@ -9,10 +9,23 @@ from todo_manager import (
     delete_todo_multiple,
     delete_all_todos,
     mark_done_multiple,
-    mark_all_done
+    mark_all_done,
+    restore_from_google_sheet,
+    save_to_google_sheet
 )
 from scheduler import setup_scheduler
 from keep_alive import keep_alive
+
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+def get_gspread_client():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    return gspread.authorize(creds)
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -33,13 +46,12 @@ async def todo(ctx, subcommand=None, *args):
         if content:
             raw_items = content.replace('\r', '').replace(',', '\n').split('\n')
             items = [item.strip() for item in raw_items if item.strip()]
-
             for item in items:
                 add_todo(user_id, item)
 
             todos = list_todos(user_id)
             msg = '\n'.join([f"{i+1}. {t['text']}" for i, t in enumerate(todos)])
-            await ctx.send(f"✅ `{ctx.author.display_name}` 님의 할 일이 {len(items)}개 추가되었어요.\n\n📋 현재 TODO 목록:\n{msg}")
+            await ctx.send(f"✅ {len(items)}개 추가됨!\n\n📋 현재 TODO 목록:\n{msg}")
         else:
             await ctx.send("❗ 추가할 내용을 입력해 주세요.")
 
@@ -56,7 +68,7 @@ async def todo(ctx, subcommand=None, *args):
 
     elif subcommand == "삭제":
         if not args:
-            await ctx.send("❗ 삭제할 번호를 입력해 주세요. (예: `!todo 삭제 1 3`) 또는 `전체`")
+            await ctx.send("❗ 삭제할 번호를 입력하거나 `전체`를 입력해 주세요.")
             return
 
         if args[0] == "전체":
@@ -74,7 +86,7 @@ async def todo(ctx, subcommand=None, *args):
 
     elif subcommand == "완료":
         if not args:
-            await ctx.send("❗ 완료할 번호를 입력해 주세요. (예: `!todo 완료 1 3`) 또는 `전체`")
+            await ctx.send("❗ 완료할 번호를 입력하거나 `전체`를 입력해 주세요.")
             return
 
         if args[0] == "전체":
@@ -91,11 +103,35 @@ async def todo(ctx, subcommand=None, *args):
             await ctx.send("❗ 올바른 번호를 입력해 주세요.")
 
     else:
-        await ctx.send("❓ 사용법:\n"
-                       "`!todo 추가 <내용>` (쉼표/줄바꿈 구분 다중 가능)\n"
-                       "`!todo 목록` (관리자는 다른 유저 ID로 조회 가능)\n"
-                       "`!todo 삭제 <번호 번호...>` 또는 `전체`\n"
-                       "`!todo 완료 <번호 번호...>` 또는 `전체`")
+        await ctx.send(
+            "❓ 사용법:\n"
+            "`!todo 추가 <내용>` (쉼표, 줄바꿈으로 다중 가능)\n"
+            "`!todo 목록`\n"
+            "`!todo 삭제 <번호들>` 또는 `전체`\n"
+            "`!todo 완료 <번호들>` 또는 `전체`"
+        )
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def 저장(ctx):
+    try:
+        client = get_gspread_client()
+        sheet = client.open("MyTodoBackup").sheet1
+        save_to_google_sheet(sheet)
+        await ctx.send("📤 Google Sheets로 백업 완료!")
+    except Exception as e:
+        await ctx.send(f"❌ 백업 중 오류 발생:\n```{e}```")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def 복원(ctx):
+    try:
+        client = get_gspread_client()
+        sheet = client.open("MyTodoBackup").sheet1
+        restore_from_google_sheet(sheet)
+        await ctx.send("✅ Google Sheets로부터 복원 완료!")
+    except Exception as e:
+        await ctx.send(f"❌ 복원 중 오류 발생:\n```{e}```")
 
 keep_alive()
 setup_scheduler(bot, CHANNEL_ID)

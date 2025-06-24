@@ -42,3 +42,24 @@ def mark_all_done(user_id):
 
 def clear_completed(user_id):
     db.remove((User.user_id == user_id) & (User.done == True))
+
+def restore_from_google_sheet(sheet):
+    db.truncate()
+    records = sheet.get_all_records()
+    for row in records:
+        user_id = str(row.get("User ID") or "")
+        text = row.get("할 일") or ""
+        done_val = row.get("완료됨")
+        done = str(done_val).strip().lower() in ["true", "1", "yes", "y", "완료", "o", "✔", "✅"]
+        if user_id and text:
+            db.insert({"user_id": user_id, "text": text, "done": done})
+
+def save_to_google_sheet(sheet):
+    sheet.clear()
+    sheet.append_row(["User ID", "할 일", "완료됨"])
+    for row in db.all():
+        sheet.append_row([
+            row.get("user_id", ""),
+            row.get("text", ""),
+            "TRUE" if row.get("done") else "FALSE"
+        ])
