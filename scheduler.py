@@ -1,31 +1,39 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from discord.ext import tasks
 import discord
 from todo_manager import clear_completed
 
-def get_seconds_until_next_monday(hour=21):
-    now = datetime.now()
-    days_ahead = (7 - now.weekday()) % 7
-    if days_ahead == 0 and now.hour >= hour:
+KST = timezone(timedelta(hours=9))
+
+def get_seconds_until_next_monday(hour_kst=21):
+    now_utc = datetime.now(timezone.utc)
+    now_kst = now_utc.astimezone(KST)
+
+    days_ahead = (7 - now_kst.weekday()) % 7
+    if days_ahead == 0 and now_kst.hour >= hour_kst:
         days_ahead = 7
-    next_monday = now + timedelta(days=days_ahead)
-    next_monday = next_monday.replace(hour=hour, minute=0, second=0, microsecond=0)
-    return (next_monday - now).total_seconds()
+
+    next_monday_kst = (now_kst + timedelta(days=days_ahead)).replace(
+        hour=hour_kst, minute=0, second=0, microsecond=0
+    )
+    next_monday_utc = next_monday_kst.astimezone(timezone.utc)
+    return (next_monday_utc - now_utc).total_seconds()
 
 def setup_scheduler(bot, channel_id):
-    @tasks.loop(seconds=60 * 60 * 24 * 7)
-    async def monday_thread_reminder():
-        clear_completed()  # :white_check_mark: 완료된 항목 삭제
+    @tasks.loop(weeks=1)
+    async def monday_reminder():
         channel = bot.get_channel(channel_id)
         if channel:
             thread = await channel.create_thread(
-                name=f":pencil: Weekly TODO - {datetime.now().strftime('%Y-%m-%d')}",
+                name=f"📝 Weekly TODO - {datetime.now(KST).strftime('%Y-%m-%d')}",
                 type=discord.ChannelType.public_thread
             )
-            await thread.send("@everyone 새로운 한 주입니다! 개인 채널에서 투두리스트 등록 후 아래 스레드에서 [!todo 목록] 을 호출해주세요~ :muscle:")
+            await thread.send("@everyone 새로운 한 주입니다! 아래 스레드에 이번 주 TODO를 적어주세요. 💪")
+            for member in channel.members:
+                clear_completed(str(member.id))
 
     @bot.event
     async def on_ready():
         await asyncio.sleep(get_seconds_until_next_monday())
-        monday_thread_reminder.start()
+        monday_reminder.start()
